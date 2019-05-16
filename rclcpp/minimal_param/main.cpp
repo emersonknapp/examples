@@ -17,25 +17,29 @@
 #include <memory>
 #include "rclcpp/parameter.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include <unistd.h>
 
-void do_test(int argc, char ** argv, bool declare_before_subscribe=true) {
+using namespace std::chrono_literals;
+
+void do_test(int argc, char ** argv, bool declare_before_subscribe, auto sleep_after_subscribe) {
   rclcpp::init(argc, argv);
   static const char * param_name = "timing_test_param";
   rclcpp::Node::SharedPtr node = std::make_shared<rclcpp::Node>("my_node");
-  auto start = std::chrono::system_clock::now();
+  std::chrono::system_clock::time_point start; // = std::chrono::system_clock::now();
 
   if (declare_before_subscribe) {
     node->declare_parameter(param_name, rclcpp::ParameterValue(false));
   }
   auto client = std::make_shared<rclcpp::AsyncParametersClient>(node);
 
-  auto sub = client->on_parameter_event([start](const rcl_interfaces::msg::ParameterEvent::SharedPtr event) -> void {
+  auto sub = client->on_parameter_event([&start](const rcl_interfaces::msg::ParameterEvent::SharedPtr event) -> void {
     (void) event;
     auto now = std::chrono::system_clock::now();
     auto diff = now - start;
     RCUTILS_LOG_INFO_NAMED("minimal_param", "Got event %ld ms after set", std::chrono::duration_cast<std::chrono::milliseconds>(diff).count());
   });
 
+  std::this_thread::sleep_for(sleep_after_subscribe);
   start = std::chrono::system_clock::now();
 
   if (!declare_before_subscribe) {
@@ -55,9 +59,12 @@ int main(int argc, char * argv[])
 {
   // Setting up subscriber before any publishes, I get 2 "Got event" callbacks at about 80ms
   RCUTILS_LOG_INFO_NAMED("minimal_param", "Running declare _after_ subscribe");
-  do_test(argc, argv, false);
+  do_test(argc, argv, false, 0ms);
   // Setting up subscriber after declaration publish, I get 1 "Got event" callback at about 3000ms
   RCUTILS_LOG_INFO_NAMED("minimal_param", "Running declare _before_ subscribe");
-  do_test(argc, argv, true);
+  do_test(argc, argv, true, 0ms);
+  // If I sleep briefly before publishing, then the callbacks are fast again
+  RCUTILS_LOG_INFO_NAMED("minimal_param", "Running declare _before_ subscribe (sleeping after subscribe)");
+  do_test(argc, argv, true, 100ms);
   return 0;
 }
