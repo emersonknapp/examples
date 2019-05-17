@@ -22,11 +22,14 @@ class MinimalSubscriber(Node):
 
     def __init__(self):
         super().__init__('minimal_subscriber')
+        qos = rclpy.qos.QoSProfile(
+            depth=10,
+            durability=rclpy.qos.QoSDurabilityPolicy.RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL)
         self.subscription = self.create_subscription(
             String,
             'topic',
             self.listener_callback,
-            10)
+            qos)
         self.subscription  # prevent unused variable warning
 
     def listener_callback(self, msg):

@@ -25,7 +25,9 @@ public:
   : Node("minimal_subscriber")
   {
     subscription_ = this->create_subscription<std_msgs::msg::String>(
-      "topic", 10, std::bind(&MinimalSubscriber::topic_callback, this, _1));
+      "topic",
+      rclcpp::QoS(10).transient_local(),
+      std::bind(&MinimalSubscriber::topic_callback, this, _1));
   }
 
 private:
